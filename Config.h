@@ -44,6 +44,10 @@ class Config {
     config_result write();
     config_result read();
 
+    int serialize(unsigned char *buffer);
+    config_result deserialize(unsigned char *buffer, int length);
+    int estimateSerializeBufferLength();
+
   private:
     char* ssid;
     char* passkey;
@@ -57,13 +61,9 @@ class Config {
     char* staticSubnet;
 
     bool allocString(char **dest, const char *val);
-    config_result deserialize(unsigned char *buffer, int length);
     config_result deserializeString(unsigned char *buffer, int bufferlen, char **string, int *offset);
 
-    int serialize(unsigned char *buffer);
     void serializeString(unsigned char *buffer, char *string, int *offset);
-
-    int estimateSerializeBufferLength();
 };
 
 

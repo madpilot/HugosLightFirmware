@@ -3,6 +3,8 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <ESPAsyncWebServer.h>
+#include <ESP8266mDNS.h>
+#include <Ticker.h>
 
 #include "Config.h"
 #include "ConfigServer.h"
@@ -12,7 +14,7 @@
 #define CONFIG_AP_SSID "hugos-lights"
 
 #define DATA_PIN    15
-#define BUTTON 13
+#define BUTTON      5
 
 #define LED_TYPE    WS2811
 #define COLOR_ORDER GRB
@@ -24,12 +26,72 @@ Config config;
 AsyncWebServer server(80);
 
 bool configMode = false;
-bool otaMode = false;
 
 WifiManager wifiManager(&config);
 
-void buttonPress() {
+Ticker doubleClickTicker;
+Ticker holdClickTicker;
 
+volatile bool isButtonDown = false;
+volatile int buttonPresses = 0;
+
+#define CLICK_SINGLE 0x01
+#define CLICK_DOUBLE 0x02
+#define CLICK_HOLD 0x03
+
+void buttonEvent(int type) {
+  if(type == CLICK_HOLD) {
+    if(isButtonDown && buttonPresses == 0) {
+      Serial.println("Click: Hold");
+    }
+
+    // Regardless, reset the counters...
+    isButtonDown = false;
+    buttonPresses = 0;
+    
+    doubleClickTicker.detach();
+    holdClickTicker.detach();
+  } else if(type == CLICK_DOUBLE) {
+    if(buttonPresses >= 2) {
+      isButtonDown = false;
+      buttonPresses = 0;
+      doubleClickTicker.detach();
+      holdClickTicker.detach();
+      
+      Serial.println("Click: Double");
+    } else if(buttonPresses == 1) {
+      isButtonDown = false;
+      buttonPresses = 0;
+      doubleClickTicker.detach();
+      holdClickTicker.detach();
+      
+      Serial.println("Click: Single");
+    }
+  }
+}
+
+void buttonDown() {
+  if(buttonPresses == 0) {
+    doubleClickTicker.once_ms(500, buttonEvent, CLICK_DOUBLE);
+    holdClickTicker.once(2, buttonEvent, CLICK_HOLD);
+  }
+  
+  isButtonDown = true;
+}
+
+void buttonUp() {
+  if(isButtonDown) {
+    buttonPresses += 1;
+    isButtonDown = false;
+  }
+}
+
+void buttonChange() {  
+  if(digitalRead(BUTTON) == 1) {
+    buttonUp();
+  } else {
+    buttonDown();
+  }
 }
 
 config_result configSetup() {
@@ -60,6 +122,10 @@ void wifiSetup() {
     delay(5000);
   }
   Serial.println("Connected to WiFi");
+  MDNS.begin(config.get_deviceName());
+  Serial.printf("Registered as %s.local\n", config.get_deviceName());
+  MDNS.addService("http", "tcp", 80);
+  // TODO: Add a Service for discovery
 }
 
 CaptivatePortal *portal;
@@ -76,17 +142,21 @@ void setup() {
   Serial.begin(115200);
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
 
+  // Turn off all the LEDs for boot
   for(int i = 0; i < NUM_LEDS; i++) {
     leds[i] = CRGB::Black;
   }
   FastLED.show();
   
-  pinMode(BUTTON, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(BUTTON), buttonPress, FALLING);
+  pinMode(BUTTON, INPUT);
+  attachInterrupt(digitalPinToInterrupt(BUTTON), buttonChange, CHANGE);
  
   config_result configResult = configSetup();
-  ConfigServer::setup(&server);
-  if(configResult != E_CONFIG_OK) {
+  ConfigServer::setup(&server, &config);
+
+  // Start in captivate mode if there was a problem reading the config, 
+  // or the hardware button is held down on boot
+  if(configResult != E_CONFIG_OK || digitalRead(BUTTON) == 0) {
     configMode = true;
     captivatePortalSetup();
     server.begin();
@@ -95,78 +165,12 @@ void setup() {
   server.begin();
 
   wifiSetup();
-  
-  /*
-  if(digitalRead(BUTTON) == 0) {
-    otaMode = true;
-    ArduinoOTA.setPort(8266);
-    ArduinoOTA.setHostname("hugos-light");
-    ArduinoOTA.onStart([]() {
-      Syslogger.send(SYSLOG_DEBUG, "Starting OTA Update.");
-    });
-    ArduinoOTA.onEnd([]() {
-      Syslogger.send(SYSLOG_DEBUG, "OTA Update complete.");
-    });
-    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-      unsigned int percent = (progress / (total / 100));
-
-      if(percent % 2 == 0) {
-        digitalWrite(LED, LOW);
-      }
-      if(percent % 2 == 1) {
-        digitalWrite(LED, HIGH);
-      }
-
-      if(percent % 10 == 0) {
-        char *str = "OTA Update progress: 100%";
-        sprintf(str, "OTA Update progress: %u%%", percent);
-        Syslogger.send(SYSLOG_DEBUG, str);
-      }
-    });
-    ArduinoOTA.onError([](ota_error_t error) {
-      switch(error) {
-        case OTA_AUTH_ERROR:
-          Syslogger.send(SYSLOG_DEBUG, "OTA Update failed: Authentication failed.");
-          break;
-        case OTA_BEGIN_ERROR:
-          Syslogger.send(SYSLOG_DEBUG, "OTA Update failed: Begin failed.");
-          break;
-        case OTA_CONNECT_ERROR:
-          Syslogger.send(SYSLOG_DEBUG, "OTA Update failed: Connect failed.");
-          break;
-        case OTA_RECEIVE_ERROR:
-          Syslogger.send(SYSLOG_DEBUG, "OTA Update failed: Receive failed.");
-          break;
-        case OTA_END_ERROR:
-          Syslogger.send(SYSLOG_DEBUG, "OTA Update failed: End failed.");
-          break;
-      }
-    });
-    ArduinoOTA.begin();
-    
-    Syslogger.send(SYSLOG_DEBUG, "Ready for OTA update. Push to coffee-machine.local:8266");
-    return;
-  }
-  */  
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-   if(otaMode) {
-    ArduinoOTA.handle();
-    return;
-  }
-
   if(configMode) {
-    
     return;
   }
-
-  /*
-  if(buttonPressed) {
-    buttonPressed = false;
-  }
-  */
 
   int wifiRes = wifiManager.loop();
   if(wifiRes != E_WIFI_OK) {

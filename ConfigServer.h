@@ -1,6 +1,8 @@
 #ifndef CONFIG_MANAGER_h
 #define CONFIG_MANAGER_h
 #include <ESPAsyncWebServer.h>
+#include "ConfigEncoder.h"
+#include "Config.h"
 
 #define WIFI_TIMEOUT              30000
 
@@ -11,6 +13,6 @@
 
 class ConfigServer {
   public:
-    static void setup(AsyncWebServer *server);
+    static void setup(AsyncWebServer *server, Config *config);
 };
 #endif
