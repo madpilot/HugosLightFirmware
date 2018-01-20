@@ -23,7 +23,7 @@
 CRGB leds[NUM_LEDS];
 
 Config config;
-AsyncWebServer server(80);
+AsyncWebServer webServer(80);
 
 bool configMode = false;
 
@@ -39,6 +39,13 @@ volatile int buttonPresses = 0;
 #define CLICK_DOUBLE 0x02
 #define CLICK_HOLD 0x03
 
+#define UDP_PORT 7269
+#define MAGIC_NUMBER 0x48
+
+#define ANIMATION_RAW 0x01
+uint8_t animation = ANIMATION_RAW;
+AsyncUDP udpServer = AsyncUDP();
+
 void buttonEvent(int type) {
   if(type == CLICK_HOLD) {
     if(isButtonDown && buttonPresses == 0) {
@@ -48,7 +55,7 @@ void buttonEvent(int type) {
     // Regardless, reset the counters...
     isButtonDown = false;
     buttonPresses = 0;
-    
+
     doubleClickTicker.detach();
     holdClickTicker.detach();
   } else if(type == CLICK_DOUBLE) {
@@ -57,14 +64,14 @@ void buttonEvent(int type) {
       buttonPresses = 0;
       doubleClickTicker.detach();
       holdClickTicker.detach();
-      
+
       Serial.println("Click: Double");
     } else if(buttonPresses == 1) {
       isButtonDown = false;
       buttonPresses = 0;
       doubleClickTicker.detach();
       holdClickTicker.detach();
-      
+
       Serial.println("Click: Single");
     }
   }
@@ -75,7 +82,7 @@ void buttonDown() {
     doubleClickTicker.once_ms(500, buttonEvent, CLICK_DOUBLE);
     holdClickTicker.once(2, buttonEvent, CLICK_HOLD);
   }
-  
+
   isButtonDown = true;
 }
 
@@ -86,7 +93,7 @@ void buttonUp() {
   }
 }
 
-void buttonChange() {  
+void buttonChange() {
   if(digitalRead(BUTTON) == 1) {
     buttonUp();
   } else {
@@ -131,7 +138,7 @@ void wifiSetup() {
 CaptivatePortal *portal;
 void captivatePortalSetup() {
   portal = new CaptivatePortal();
-  if(portal->start(CONFIG_AP_SSID, &server) == E_CAPTIVATE_PORTAL_OK) {
+  if(portal->start(CONFIG_AP_SSID, &webServer) == E_CAPTIVATE_PORTAL_OK) {
     Serial.printf("Captivate Portal set up. Name: %s\n", CONFIG_AP_SSID);
   } else {
     Serial.println("Unable to setup Captivate Portal");
@@ -147,34 +154,52 @@ void setup() {
     leds[i] = CRGB::Black;
   }
   FastLED.show();
-  
+
   pinMode(BUTTON, INPUT);
   attachInterrupt(digitalPinToInterrupt(BUTTON), buttonChange, CHANGE);
- 
-  config_result configResult = configSetup();
-  ConfigServer::setup(&server, &config);
 
-  // Start in captivate mode if there was a problem reading the config, 
+  config_result configResult = configSetup();
+  ConfigServer::setup(&webServer, &config);
+
+  // Start in captivate mode if there was a problem reading the config,
   // or the hardware button is held down on boot
   if(configResult != E_CONFIG_OK || digitalRead(BUTTON) == 0) {
     configMode = true;
     captivatePortalSetup();
-    server.begin();
+    webServer.begin();
     return;
   }
-  server.begin();
 
   wifiSetup();
+
+  webServer.begin();
+  udpServer.listen(UDP_PORT);
+
+  udpServer.onPacket([leds](AsyncUDPPacket packet) {
+    uint8_t *payload = packet.data();
+
+    if(packet.length() == sizeof(uint8_t) * ((NUM_LEDS * 3) + 1) && *(payload++) == (uint8_t)MAGIC_NUMBER) {
+      uint8_t i = 0;
+
+      while(i < NUM_LEDS) {
+        leds[i].red = *(payload++);
+        leds[i].green = *(payload++);
+        leds[i].blue = *(payload++);
+        i++;
+      }
+    }
+  });
 }
 
+long last = millis();
 void loop() {
   if(configMode) {
     return;
   }
 
-  int wifiRes = wifiManager.loop();
-  if(wifiRes != E_WIFI_OK) {
-    //Serial.print("Unable to connect to WiFI: ");
-    //Serial.println(wifiRes);
+  long now = millis();
+  if(now - last > 10) {
+    FastLED.show();
+    last = now;
   }
 }
