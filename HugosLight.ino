@@ -1,3 +1,5 @@
+#define FASTLED_ALLOW_INTERRUPTS 0
+
 #include <FastLED.h>
 
 #include <WiFiUdp.h>
@@ -10,6 +12,7 @@
 #include "ConfigServer.h"
 #include "WifiManager.h"
 #include "CaptivatePortal.h"
+#include "State.h"
 
 #define CONFIG_AP_SSID "hugos-lights"
 
@@ -21,6 +24,7 @@
 #define NUM_LEDS    14
 
 CRGB leds[NUM_LEDS];
+State state(leds, NUM_LEDS);
 
 Config config;
 AsyncWebServer webServer(80);
@@ -42,9 +46,8 @@ volatile int buttonPresses = 0;
 #define UDP_PORT 7269
 #define MAGIC_NUMBER 0x48
 
-#define ANIMATION_RAW 0x01
 uint8_t animation = ANIMATION_RAW;
-AsyncUDP udpServer = AsyncUDP();
+WiFiUDP Udp;
 
 void buttonEvent(int type) {
   if(type == CLICK_HOLD) {
@@ -173,33 +176,57 @@ void setup() {
   wifiSetup();
 
   webServer.begin();
-  udpServer.listen(UDP_PORT);
-
-  udpServer.onPacket([leds](AsyncUDPPacket packet) {
-    uint8_t *payload = packet.data();
-
-    if(packet.length() == sizeof(uint8_t) * ((NUM_LEDS * 3) + 1) && *(payload++) == (uint8_t)MAGIC_NUMBER) {
-      uint8_t i = 0;
-
-      while(i < NUM_LEDS) {
-        leds[i].red = *(payload++);
-        leds[i].green = *(payload++);
-        leds[i].blue = *(payload++);
-        i++;
-      }
-    }
-  });
+  Udp.begin(UDP_PORT);
 }
 
-long last = millis();
 void loop() {
   if(configMode) {
     return;
   }
 
-  long now = millis();
-  if(now - last > 10) {
-    FastLED.show();
-    last = now;
+  int length = Udp.parsePacket();
+  if(length) {
+    uint8_t *payload = (uint8_t *)malloc(sizeof(uint8_t) * length);
+    Udp.read(payload, length);
+
+    if(length >= 2 && *(payload++) == (uint8_t)MAGIC_NUMBER) {
+      uint16_t duration = 0;
+      int strippedLength = length - 2;
+
+      switch(*(payload++)) {
+        case COMMAND_OFF:
+          state.off(duration);
+          break;
+        case COMMAND_ON:
+          state.on(duration);
+          break;
+        case COMMAND_SET_BRIGHTNESS:
+          if(strippedLength >= 1) {
+            state.setBrightness(*payload, duration);
+          }
+        case COMMAND_SET_HSV:
+          if(strippedLength >= 5) {
+            duration = (*(payload + 3) << 8) + *(payload + 4);
+          }
+          state.setHSV(*payload, *(payload + 1), *(payload + 2), duration);
+          break;
+        case COMMAND_SET_ANIMATION:
+          if(strippedLength > 0) {
+            state.setAnimation((unsigned int)*payload);
+          }
+          break;
+        case COMMAND_RAW:
+          state.raw(payload, strippedLength);
+          break;
+      }
+    }
+    free(payload);
   }
+
+  if(state.requestAnimationFrame()) {
+    // When the next animation frame is ready, render the LEDS;
+    FastLED.show();
+  }
+
+
 }
