@@ -36,6 +36,10 @@ class State {
 
     void setHSV(uint8_t hue, uint8_t saturation, uint8_t value, long duration);
 
+    void setHue(uint8_t hue, long duration);
+    void setSaturation(uint8_t saturation, long duration);
+    void setValue(uint8_t value, long duration);
+
     void setAnimation(unsigned int animation);
     void raw(uint8_t *payload, int length);
 
@@ -55,6 +59,7 @@ class State {
     int _animationIndex;
 
     uint8_t *_rawPayload;
+    uint16_t endFrame(long duration);
 
     void _fade(uint8_t hue, uint8_t saturation, uint8_t value, long duration);
 };

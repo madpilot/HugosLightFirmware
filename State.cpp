@@ -16,12 +16,16 @@ State::~State() {
   free(_rawPayload);
 }
 
-void State::_fade(uint8_t hue, uint8_t saturation, uint8_t value, long duration) {
-  uint16_t endFrame = duration * FPS / 1000;
-  if(endFrame < TICKS) {
-    endFrame = TICKS;
+uint16_t State::endFrame(long duration) {
+  uint16_t end = duration * FPS / 1000;
+  if(end < TICKS) {
+    end = 1;
   }
-  CHSV nextState = CHSV(hue, saturation, value);
+  return end;
+}
+
+void State::_fade(uint8_t hue, uint8_t saturation, uint8_t value, long duration) {
+ CHSV nextState = CHSV(hue, saturation, value);
 
   _animations.clear();
   for(int i = 0; i < _numLEDS; i++ ) {
@@ -31,7 +35,7 @@ void State::_fade(uint8_t hue, uint8_t saturation, uint8_t value, long duration)
     hsv2rgb_rainbow(nextState, toRGB);
 
     frames.push_back(Frame<CRGB>(0, CRGB(_leds[i].red, _leds[i].green, _leds[i].blue)));
-    frames.push_back(Frame<CRGB>(endFrame, toRGB));
+    frames.push_back(Frame<CRGB>(endFrame(duration), toRGB));
     _animations.push_back(Animation<CRGB>(frames, 2, 0));
   }
 
@@ -75,15 +79,10 @@ void State::on(int duration) {
 }
 
 void State::setBrightness(uint8_t brightness, int duration) {
-  uint16_t endFrame = duration * FPS / 1000;
-  if(endFrame < TICKS) {
-    endFrame = TICKS;
-  }
-
   std::vector<Frame<uint8_t>> frames;
 
   frames.push_back(Frame<uint8_t>(0, FastLED.getBrightness()));
-  frames.push_back(Frame<uint8_t>(endFrame, brightness));
+  frames.push_back(Frame<uint8_t>(endFrame(duration), brightness));
 
   _brightnessAnimation = Animation<uint8_t>(frames, 2, 0);
   _brightnessState = brightness;
@@ -91,6 +90,18 @@ void State::setBrightness(uint8_t brightness, int duration) {
 
 void State::setHSV(uint8_t hue, uint8_t saturation, uint8_t value, long duration) {
   _fade(hue, saturation, value, duration);
+}
+
+void State::setHue(uint8_t hue, long duration) {
+  _fade(hue, _state.saturation, _state.value, duration);
+}
+
+void State::setSaturation(uint8_t saturation, long duration) {
+  _fade(_state.hue, saturation, _state.value, duration);
+}
+
+void State::setValue(uint8_t value, long duration) {
+  _fade(_state.hue, _state.saturation, value, duration);
 }
 
 void State::setAnimation(unsigned int animation) {

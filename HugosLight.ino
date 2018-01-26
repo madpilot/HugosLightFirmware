@@ -195,9 +195,15 @@ void loop() {
 
       switch(*(payload++)) {
         case COMMAND_OFF:
+          if(strippedLength >= 2) {
+            duration = (*(payload) << 8) + *(payload + 1);
+          }
           state.off(duration);
           break;
         case COMMAND_ON:
+          if(strippedLength >= 2) {
+            duration = (*(payload) << 8) + *(payload + 1);
+          }
           state.on(duration);
           break;
         case COMMAND_SET_BRIGHTNESS:
@@ -207,6 +213,7 @@ void loop() {
           if(strippedLength >= 1) {
             state.setBrightness(*payload, duration);
           }
+          break;
         case COMMAND_SET_HSV:
           if(strippedLength >= 5) {
             duration = (*(payload + 3) << 8) + *(payload + 4);
