@@ -46,8 +46,10 @@ class State {
 
     CHSV _state;
     CRGB *_leds;
+    uint8_t _brightnessState;
 
-    std::vector<Animation> _animations;
+    std::vector<Animation<CRGB>> _animations;
+    Animation<uint8_t> _brightnessAnimation;
 
     int _animationType;
     int _animationIndex;

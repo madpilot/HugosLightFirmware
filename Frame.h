@@ -1,11 +1,20 @@
 #ifndef FRAME_h
 #define FRAME_h
 #include <FastLED.h>
+
+template <class T>
 class Frame {
   public:
-    Frame();
-    Frame(uint16_t n, CRGB l);
+    Frame() {
+      number = 0;
+      tweenable = CRGB(0, 0, 0);
+    }
+    Frame(uint16_t n, T t) {
+      number = n;
+      tweenable = t;
+    }
+
     uint16_t number;
-    CRGB led;
+    T tweenable;
 };
 #endif

@@ -7,6 +7,8 @@ State::State(CRGB *leds, int numLEDS) {
 
   _state = CHSV(0, 0, 0);
   _leds = leds;
+
+  _brightnessState = 255;
 }
 
 State::~State() {
@@ -19,14 +21,14 @@ void State::_fade(uint8_t hue, uint8_t saturation, uint8_t value, long duration)
 
   _animations.clear();
   for(int i = 0; i < _numLEDS; i++ ) {
-    std::vector<Frame> frames;
+    std::vector<Frame<CRGB>> frames;
 
     CRGB toRGB;
     hsv2rgb_rainbow(nextState, toRGB);
 
-    frames.push_back(Frame(0, CRGB(_leds[i].red, _leds[i].green, _leds[i].blue)));
-    frames.push_back(Frame(endFrame, toRGB));
-    _animations.push_back(Animation(frames, 2, 0));
+    frames.push_back(Frame<CRGB>(0, CRGB(_leds[i].red, _leds[i].green, _leds[i].blue)));
+    frames.push_back(Frame<CRGB>(endFrame, toRGB));
+    _animations.push_back(Animation<CRGB>(frames, 2, 0));
   }
 
   _state = nextState;
@@ -36,6 +38,10 @@ bool State::requestAnimationFrame() {
   long now = millis();
 
   if(now - _lastTick > TICKS) {
+    Frame<uint8_t> b;
+    _brightnessAnimation.nextFrame(&b);
+    FastLED.setBrightness(b.tweenable);
+
     if(_animationType == ANIMATION_RAW) {
       for(int i = 0; i < _numLEDS; i++) {
         _leds[i].red = *(_rawPayload + (i * 3));
@@ -44,13 +50,9 @@ bool State::requestAnimationFrame() {
       }
     } else {
       for(int i = 0; i < _animations.size(); i++) {
-        Frame f;
-
+        Frame<CRGB> f;
         _animations[i].nextFrame(&f);
-
-        _leds[i].red = f.led.red;
-        _leds[i].green = f.led.green;
-        _leds[i].blue = f.led.blue;
+        _leds[i] = f.tweenable;
       }
     }
     return true;
@@ -67,7 +69,14 @@ void State::on(int duration) {
 }
 
 void State::setBrightness(uint8_t brightness, int duration) {
-  FastLED.setBrightness(brightness);
+  uint16_t endFrame = duration * FPS / 1000;
+
+  std::vector<Frame<uint8_t>> frames;
+
+  frames.push_back(Frame<uint8_t>(0, FastLED.getBrightness()));
+  frames.push_back(Frame<uint8_t>(endFrame, brightness));
+  _brightnessAnimation = Animation<uint8_t>(frames, 2, 0);
+  _brightnessState = brightness;
 }
 
 void State::setHSV(uint8_t hue, uint8_t saturation, uint8_t value, long duration) {
