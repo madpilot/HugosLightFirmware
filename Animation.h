@@ -45,7 +45,7 @@ class Animation {
 
         if(needle.number == num) {
           // Frame found
-          result->tweenable = needle.tweenable;
+          memmove(&(result->tweenable), &(needle.tweenable), sizeof(T));
           return;
 
         } else if(low > high) {
@@ -118,8 +118,8 @@ class Animation {
       return increment;
     }
 
-    uint8_t _tween(uint8_t prev, uint8_t next, float increment) {
-      return prev + (uint8_t)((float)next - prev) * increment;
+    uint8_t _tween(int prev, int next, float increment) {
+      return (uint8_t)(prev + (((float)next - (float)prev) * increment));
     }
 
     CRGB _tween(CRGB prev, CRGB next, float increment) {

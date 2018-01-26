@@ -201,6 +201,9 @@ void loop() {
           state.on(duration);
           break;
         case COMMAND_SET_BRIGHTNESS:
+          if(strippedLength >= 3) {
+            duration = (*(payload + 1) << 8) + *(payload + 2);
+          }
           if(strippedLength >= 1) {
             state.setBrightness(*payload, duration);
           }

@@ -9,6 +9,7 @@ State::State(CRGB *leds, int numLEDS) {
   _leds = leds;
 
   _brightnessState = 255;
+  setBrightness(_brightnessState, 0);
 }
 
 State::~State() {
@@ -17,6 +18,9 @@ State::~State() {
 
 void State::_fade(uint8_t hue, uint8_t saturation, uint8_t value, long duration) {
   uint16_t endFrame = duration * FPS / 1000;
+  if(endFrame < TICKS) {
+    endFrame = TICKS;
+  }
   CHSV nextState = CHSV(hue, saturation, value);
 
   _animations.clear();
@@ -52,7 +56,9 @@ bool State::requestAnimationFrame() {
       for(int i = 0; i < _animations.size(); i++) {
         Frame<CRGB> f;
         _animations[i].nextFrame(&f);
-        _leds[i] = f.tweenable;
+        _leds[i].red = f.tweenable.red;
+        _leds[i].green = f.tweenable.green;
+        _leds[i].blue = f.tweenable.blue;
       }
     }
     return true;
@@ -70,11 +76,16 @@ void State::on(int duration) {
 
 void State::setBrightness(uint8_t brightness, int duration) {
   uint16_t endFrame = duration * FPS / 1000;
+  if(endFrame < TICKS) {
+    endFrame = TICKS;
+  }
 
   std::vector<Frame<uint8_t>> frames;
 
+  Serial.printf("Fade from %i to %i in %i frames\n", FastLED.getBrightness(), brightness, endFrame);
   frames.push_back(Frame<uint8_t>(0, FastLED.getBrightness()));
   frames.push_back(Frame<uint8_t>(endFrame, brightness));
+
   _brightnessAnimation = Animation<uint8_t>(frames, 2, 0);
   _brightnessState = brightness;
 }
