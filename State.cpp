@@ -82,7 +82,6 @@ void State::setBrightness(uint8_t brightness, int duration) {
 
   std::vector<Frame<uint8_t>> frames;
 
-  Serial.printf("Fade from %i to %i in %i frames\n", FastLED.getBrightness(), brightness, endFrame);
   frames.push_back(Frame<uint8_t>(0, FastLED.getBrightness()));
   frames.push_back(Frame<uint8_t>(endFrame, brightness));
 
