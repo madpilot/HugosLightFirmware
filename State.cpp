@@ -4,10 +4,9 @@ State::State(CRGB *leds, int numLEDS) {
   _numLEDS = numLEDS;
   _lastTick = 0;
   _rawPayload = (uint8_t *)malloc(sizeof(uint8_t) * _numLEDS * 3);
-
-  _state = CHSV(0, 0, 0);
   _leds = leds;
 
+  _state = CHSV(0, 0, 0);
   _brightnessState = 255;
   setBrightness(_brightnessState, 0);
 }
@@ -92,6 +91,11 @@ void State::setHSV(uint8_t hue, uint8_t saturation, uint8_t value, long duration
   _fade(hue, saturation, value, duration);
 }
 
+void State::setRGB(uint8_t red, uint8_t green, uint8_t blue, long duration) {
+  CHSV hsv = rgb2hsv_approximate(CRGB(red, green, blue));
+  setHSV(hsv.hue, hsv.saturation, hsv.value, duration);
+}
+
 void State::setHue(uint8_t hue, long duration) {
   _fade(hue, _state.saturation, _state.value, duration);
 }
@@ -122,4 +126,38 @@ void State::raw(uint8_t *payload, int length) {
       _rawPayload[i] = *(payload + i);
     }
   }
+}
+
+CHSV State::getHSV() {
+  return _state;
+}
+
+uint8_t State::getBrightness() {
+  return _brightnessState;
+}
+
+uint8_t State::getAnimationType() {
+  return _animationType;
+}
+
+uint8_t State::getAnimationIndex() {
+  return _animationIndex;
+}
+
+void State::serialize(serialized_state *serialized) {
+  serialized->hue = _state.hue;
+  serialized->saturation = _state.saturation;
+  serialized->value = _state.value;
+  serialized->brightness = _brightnessState;
+  serialized->animationType = _animationType;
+  serialized->animationIndex = _animationIndex;
+}
+
+int State::deserialize(serialized_state *state) {
+  _state.hue = state->hue;
+  _state.saturation = state->saturation;
+  _state.value = state->value;
+  _brightnessState = state->brightness;
+  _animationType = state->animationType;
+  _animationIndex = state->animationIndex;
 }

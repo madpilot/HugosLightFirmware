@@ -8,6 +8,8 @@
 #define FPS 100
 #define TICKS 1000 / FPS
 
+#define RESPONSE 0xF0
+
 #define COMMAND_OFF 0x00
 #define COMMAND_ON 0x01
 #define COMMAND_GET_STATE 0x02
@@ -25,6 +27,15 @@
 #define ANIMATION_RAW    0x01
 #define ANIMATION_CUSTOM 0x02
 
+typedef struct serialized_state {
+  uint8_t hue;
+  uint8_t saturation;
+  uint8_t value;
+  uint8_t brightness;
+  uint8_t animationType;
+  uint8_t animationIndex;
+};
+
 class State {
   public:
     State(CRGB *leds, int numLEDS);
@@ -35,6 +46,7 @@ class State {
     void setBrightness(uint8_t brightness, int duration);
 
     void setHSV(uint8_t hue, uint8_t saturation, uint8_t value, long duration);
+    void setRGB(uint8_t red, uint8_t green, uint8_t blue, long duration);
 
     void setHue(uint8_t hue, long duration);
     void setSaturation(uint8_t saturation, long duration);
@@ -44,6 +56,14 @@ class State {
     void raw(uint8_t *payload, int length);
 
     bool requestAnimationFrame();
+
+    CHSV getHSV();
+    uint8_t getBrightness();
+    uint8_t getAnimationType();
+    uint8_t getAnimationIndex();
+
+    void serialize(serialized_state *serialized);
+    int deserialize(serialized_state *state);
   private:
     int _numLEDS;
     long _lastTick;
@@ -55,8 +75,8 @@ class State {
     std::vector<Animation<CRGB>> _animations;
     Animation<uint8_t> _brightnessAnimation;
 
-    int _animationType;
-    int _animationIndex;
+    uint8_t _animationType;
+    uint8_t _animationIndex;
 
     uint8_t *_rawPayload;
     uint16_t endFrame(long duration);

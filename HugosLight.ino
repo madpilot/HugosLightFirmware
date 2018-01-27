@@ -135,7 +135,7 @@ void wifiSetup() {
   MDNS.begin(config.get_deviceName());
   Serial.printf("Registered as %s.local\n", config.get_deviceName());
   MDNS.addService("http", "tcp", 80);
-  // TODO: Add a Service for discovery
+  MDNS.addService("hugo-light", "udp", UDP_PORT);
 }
 
 CaptivatePortal *portal;
@@ -185,7 +185,7 @@ void loop() {
   }
 
   int length = Udp.parsePacket();
-  if(length) {
+  if(length && length <= UDP_TX_PACKET_MAX_SIZE) {
     uint8_t *payload = (uint8_t *)malloc(sizeof(uint8_t) * length);
     Udp.read(payload, length);
 
@@ -195,30 +195,68 @@ void loop() {
 
       switch(*(payload++)) {
         case COMMAND_OFF:
-          if(strippedLength >= 2) {
+          if(strippedLength == 2) {
             duration = (*(payload) << 8) + *(payload + 1);
           }
           state.off(duration);
           break;
         case COMMAND_ON:
-          if(strippedLength >= 2) {
+          if(strippedLength == 2) {
             duration = (*(payload) << 8) + *(payload + 1);
           }
           state.on(duration);
           break;
+        case COMMAND_GET_STATE:
+          {
+            int len = 8 * sizeof(uint8_t);
+            uint8_t buffer[len];
+
+            buffer[0] = (uint8_t)MAGIC_NUMBER;
+            buffer[1] = COMMAND_GET_STATE | RESPONSE;
+
+            state.serialize((serialized_state *)&buffer[2]);
+            Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+            Udp.write(buffer, 8);
+            Udp.endPacket();
+          }
+          break;
         case COMMAND_SET_BRIGHTNESS:
-          if(strippedLength >= 3) {
+          if(strippedLength == 3) {
             duration = (*(payload + 1) << 8) + *(payload + 2);
           }
           if(strippedLength >= 1) {
             state.setBrightness(*payload, duration);
           }
           break;
+        case COMMAND_SET_HUE:
+          if(strippedLength == 3) {
+            duration = (*(payload + 1) << 8) + *(payload + 2);
+          }
+          state.setHue(*payload, duration);
+          break;
+        case COMMAND_SET_SATURATION:
+          if(strippedLength == 3) {
+            duration = (*(payload + 1) << 8) + *(payload + 2);
+          }
+          state.setSaturation(*payload, duration);
+          break;
+        case COMMAND_SET_VALUE:
+          if(strippedLength == 3) {
+            duration = (*(payload + 1) << 8) + *(payload + 2);
+          }
+          state.setValue(*payload, duration);
+          break;
         case COMMAND_SET_HSV:
-          if(strippedLength >= 5) {
+          if(strippedLength == 5) {
             duration = (*(payload + 3) << 8) + *(payload + 4);
           }
           state.setHSV(*payload, *(payload + 1), *(payload + 2), duration);
+          break;
+        case COMMAND_SET_RGB:
+          if(strippedLength == 5) {
+            duration = (*(payload + 3) << 8) + *(payload + 4);
+          }
+          state.setRGB(*payload, *(payload + 1), *(payload + 2), duration);
           break;
         case COMMAND_SET_ANIMATION:
           if(strippedLength > 0) {
