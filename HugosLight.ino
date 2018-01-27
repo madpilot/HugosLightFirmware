@@ -135,7 +135,7 @@ void wifiSetup() {
   MDNS.begin(config.get_deviceName());
   Serial.printf("Registered as %s.local\n", config.get_deviceName());
   MDNS.addService("http", "tcp", 80);
-  MDNS.addService("hugo-light", "udp", UDP_PORT);
+  MDNS.addService("hugos-light", "udp", UDP_PORT);
 }
 
 CaptivatePortal *portal;
