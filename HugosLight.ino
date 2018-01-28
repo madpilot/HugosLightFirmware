@@ -194,6 +194,10 @@ void loop() {
       Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
       Udp.write(payload, len);
       Udp.endPacket();
+      
+      Udp.beginPacket(IPAddress(255, 255, 255, 255), UDP_PORT);
+      Udp.write(payload, len);
+      Udp.endPacket();
     }
   }
 

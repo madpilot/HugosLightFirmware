@@ -1,9 +1,8 @@
 #include "Api.h"
 #define MAGIC_NUMBER 0x48
 
-int Api::duration(uint8_t *recvBuffer, uint8_t length, uint8_t offset) {
+uint16_t Api::duration(uint8_t *recvBuffer, uint8_t length, uint8_t offset) {
   uint8_t *start = recvBuffer;
-
   if(length == offset + 2) {
     start += offset;
     return (*(start++) << 8) + *start;
@@ -17,7 +16,7 @@ int Api::dispatch(State *state, uint8_t *payload, int length) {
   uint8_t recvLen = length;
 
   if(recvLen-- >= 2 && *(recvBuffer++) == (uint8_t)MAGIC_NUMBER) {
-    uint8_t d = 0;
+    uint16_t d = 0;
     uint8_t command = *(recvBuffer++);
     recvLen--;
 
