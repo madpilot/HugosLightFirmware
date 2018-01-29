@@ -1,4 +1,7 @@
-#define FASTLED_ALLOW_INTERRUPTS 0
+#define FASTLED_ALLOW_INTERRUPTS 1
+#define FASTLED_INTERRUPT_RETRY_COUNT 3
+#define INTERRUPT_THRESHOLD 1
+#define FASTLED_INTERNAL
 
 #include <FastLED.h>
 
@@ -127,6 +130,11 @@ config_result configSetup() {
 }
 
 void wifiSetup() {
+  // Turn off WIFI sleep to remove some jitter - apparently by default the ESP8266 uses a low power
+  // mode where it goes to sleep between beacons, causing an elongated interupt, which messes with
+  // the LED timing.
+  WiFi.setSleepMode(WIFI_NONE_SLEEP);
+
   while(wifiManager.loop() != E_WIFI_OK) {
     Serial.println("Could not connect to WiFi. Will try again in 5 seconds");
     delay(5000);
@@ -170,6 +178,12 @@ void setup() {
     configMode = true;
     captivatePortalSetup();
     webServer.begin();
+
+    for(int i = 0; i < NUM_LEDS; i++) {
+      leds[i] = CRGB::Teal;
+    }
+    FastLED.show();
+
     return;
   }
 
@@ -194,7 +208,7 @@ void loop() {
       Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
       Udp.write(payload, len);
       Udp.endPacket();
-      
+
       Udp.beginPacket(IPAddress(255, 255, 255, 255), UDP_PORT);
       Udp.write(payload, len);
       Udp.endPacket();

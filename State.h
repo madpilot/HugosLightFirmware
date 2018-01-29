@@ -4,6 +4,17 @@
 #include "Frame.h"
 #include <FastLED.h>
 #include <vector>
+#include <FS.h>
+
+#define state_result             uint8_t
+#define E_STATE_OK               0
+#define E_STATE_FS_ACCESS        1
+#define E_STATE_FILE_NOT_FOUND   2
+#define E_STATE_FILE_OPEN        3
+#define E_STATE_PARSE_ERROR      4
+#define E_STATE_OUT_OF_MEMORY    5
+#define E_STATE_UNKNOWN_VERSION  6
+#define E_STATE_CORRUPT          7
 
 #define FPS 100
 #define TICKS 1000 / FPS
@@ -64,6 +75,10 @@ class State {
 
     void serialize(serialized_state *serialized);
     int deserialize(serialized_state *state);
+
+    state_result write();
+    state_result read();
+
   private:
     int _numLEDS;
     long _lastTick;

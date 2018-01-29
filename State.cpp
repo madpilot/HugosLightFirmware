@@ -1,4 +1,5 @@
 #include "State.h"
+#define STATE_FILE_PATH "/state.dat"
 
 State::State(CRGB *leds, int numLEDS) {
   _numLEDS = numLEDS;
@@ -6,9 +7,15 @@ State::State(CRGB *leds, int numLEDS) {
   _rawPayload = (uint8_t *)malloc(sizeof(uint8_t) * _numLEDS * 3);
   _leds = leds;
 
-  _state = CHSV(0, 0, 0);
-  _brightnessState = 255;
-  setBrightness(_brightnessState, 0);
+  if(read() != E_STATE_OK) {
+    _state = CHSV(0, 0, 0);
+    _brightnessState = 255;
+    setBrightness(_brightnessState, 0);
+    _animationType = 0;
+    _animationIndex = 0;
+
+    write();
+  }
 }
 
 State::~State() {
@@ -39,6 +46,7 @@ void State::_fade(uint8_t hue, uint8_t saturation, uint8_t value, long duration)
   }
 
   _state = nextState;
+  write();
 }
 
 bool State::requestAnimationFrame() {
@@ -85,6 +93,7 @@ void State::setBrightness(uint8_t brightness, int duration) {
 
   _brightnessAnimation = Animation<uint8_t>(frames, 2, 0);
   _brightnessState = brightness;
+  write();
 }
 
 void State::setHSV(uint8_t hue, uint8_t saturation, uint8_t value, long duration) {
@@ -114,6 +123,7 @@ void State::setAnimation(unsigned int animation) {
   case 0x01:
   case 0x02:
     _animationType = animation;
+    write();
     break;
   }
 }
@@ -160,4 +170,62 @@ int State::deserialize(serialized_state *state) {
   _brightnessState = state->brightness;
   _animationType = state->animationType;
   _animationIndex = state->animationIndex;
+}
+
+state_result State::read() {
+  if (SPIFFS.begin()) {
+    if (SPIFFS.exists(STATE_FILE_PATH)) {
+      File stateFile = SPIFFS.open(STATE_FILE_PATH, "r");
+
+      if (stateFile) {
+        int length = stateFile.size();
+
+        uint8_t *buffer = (uint8_t *)malloc(sizeof(uint8_t) * length);
+        if(buffer == NULL) {
+          return E_STATE_OUT_OF_MEMORY;
+        }
+
+        stateFile.read(buffer, length);
+        deserialize((serialized_state *)buffer);
+        free(buffer);
+
+        stateFile.close();
+        return E_STATE_OK;
+      } else {
+        stateFile.close();
+        return E_STATE_FILE_OPEN;
+      }
+    } else {
+      return E_STATE_FILE_NOT_FOUND;
+    }
+  } else {
+    return E_STATE_FS_ACCESS;
+  }
+}
+
+state_result State::write() {
+  int length = 6;
+  uint8_t *buffer = (uint8_t *)malloc(sizeof(uint8_t) * length);
+  if(buffer == NULL) {
+    return E_STATE_OUT_OF_MEMORY;
+  }
+
+  serialize((serialized_state *)&buffer);
+
+  if (SPIFFS.begin()) {
+    File stateFile = SPIFFS.open(STATE_FILE_PATH, "w+");
+
+    if(stateFile) {
+      stateFile.write(buffer, length);
+      stateFile.close();
+
+      free(buffer);
+      return E_STATE_OK;
+    } else {
+      free(buffer);
+      return E_STATE_FILE_OPEN;
+    }
+  }
+  free(buffer);
+  return E_STATE_FS_ACCESS;
 }
