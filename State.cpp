@@ -64,13 +64,20 @@ bool State::requestAnimationFrame() {
         _leds[i].blue = *(_rawPayload + (i * 3) + 2);
       }
     } else {
+      bool changed = false;
       for(int i = 0; i < _animations.size(); i++) {
         Frame<CRGB> f;
         _animations[i].nextFrame(&f);
-        _leds[i].red = f.tweenable.red;
-        _leds[i].green = f.tweenable.green;
-        _leds[i].blue = f.tweenable.blue;
+
+        // Don't animate anything if there are no changes
+        if(_leds[i].red != f.tweenable.red || _leds[i].green != f.tweenable.green || _leds[i].blue != f.tweenable.blue) {
+          changed = true;
+          _leds[i].red = f.tweenable.red;
+          _leds[i].green = f.tweenable.green;
+          _leds[i].blue = f.tweenable.blue;
+        }
       }
+      return changed;
     }
     return true;
   }
@@ -173,6 +180,7 @@ int State::deserialize(serialized_state *state) {
 }
 
 state_result State::read() {
+  return E_STATE_FILE_NOT_FOUND; // Don't write stuff at the moment
   if (SPIFFS.begin()) {
     if (SPIFFS.exists(STATE_FILE_PATH)) {
       File stateFile = SPIFFS.open(STATE_FILE_PATH, "r");
@@ -204,6 +212,7 @@ state_result State::read() {
 }
 
 state_result State::write() {
+  return E_STATE_OK; // Don't write stuff at the moment
   int length = 6;
   uint8_t *buffer = (uint8_t *)malloc(sizeof(uint8_t) * length);
   if(buffer == NULL) {

@@ -1,4 +1,4 @@
-#define FASTLED_ALLOW_INTERRUPTS 1
+#define FASTLED_ALLOW_INTERRUPTS 0
 #define FASTLED_INTERRUPT_RETRY_COUNT 3
 #define INTERRUPT_THRESHOLD 1
 #define FASTLED_INTERNAL
@@ -25,7 +25,7 @@
 
 #define LED_TYPE    WS2811
 #define COLOR_ORDER GRB
-#define NUM_LEDS    14
+#define NUM_LEDS    6
 
 CRGB leds[NUM_LEDS];
 State state(leds, NUM_LEDS);
