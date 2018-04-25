@@ -137,10 +137,22 @@ void ConfigServer::setup(AsyncWebServer *server, Config *config) {
         uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
         if(!Update.begin(maxSketchSpace)) {
           Serial.println("Firmware upload could not start");
+          Update.printError(Serial);
           request->send(500);
+          return;
+        } else {
+          Update.runAsync(true);
         }
-        Update.runAsync(true);
-      } else if(final) {
+      }
+
+      if(Update.write(data, len) != len) {
+        Serial.println("Firmware upload aborted");
+        Update.printError(Serial);
+        request->send(500);
+        return;
+      }
+
+      if(final) {
         if(Update.end(true)) {
           Serial.println("Firmware upload complete. Restarting.");
           request->send(200);
@@ -148,12 +160,9 @@ void ConfigServer::setup(AsyncWebServer *server, Config *config) {
           ESP.restart();
         } else {
           Serial.println("Firmware upload failed");
+          Update.printError(Serial);
           request->send(500);
-        }
-      } else {
-        if(Update.write(data, len) != len) {
-          Serial.println("Firmware upload aborted");
-          request->send(500);
+          return;
         }
       }
     }
