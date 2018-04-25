@@ -82,10 +82,6 @@ void ConfigServer::setup(AsyncWebServer *server, Config *config) {
       unsigned char *configBuffer;
 
       if(ConfigEncoder::decode((char *)postedConfig, &configBuffer, postedConfigLen) == CONFIG_ENCODE_OK) {
-        for(int i = 0; i < configBufferLen; i++) {
-          Serial.printf("%x", configBuffer[i]);
-        }
-        Serial.println("");
         config_result deserializeResult = config->deserialize(configBuffer, configBufferLen);
 
         if(deserializeResult == E_CONFIG_OK && config->write() == E_CONFIG_OK) {
@@ -143,6 +139,7 @@ void ConfigServer::setup(AsyncWebServer *server, Config *config) {
           Serial.println("Firmware upload could not start");
           request->send(500);
         }
+        Update.runAsync(true);
       } else if(final) {
         if(Update.end(true)) {
           Serial.println("Firmware upload complete. Restarting.");
