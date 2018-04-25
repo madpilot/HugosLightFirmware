@@ -5,6 +5,11 @@
 void doUpload(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {}
 
 void ConfigServer::setup(AsyncWebServer *server, Config *config) {
+  server->on("/config/ping", HTTP_GET, [](AsyncWebServerRequest *request) {
+    AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "pong");
+    request->send(response);
+  });
+
   server->on("/config", HTTP_GET, [](AsyncWebServerRequest *request) {
     AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html; charset=utf-8", config_html_gz, config_html_gz_len);
     response->addHeader("Content-Encoding", "gzip");
@@ -12,6 +17,7 @@ void ConfigServer::setup(AsyncWebServer *server, Config *config) {
   });
 
   WiFi.scanNetworks();
+
   server->on("/aps.json", HTTP_GET, [](AsyncWebServerRequest *request) {
     int num = WiFi.scanComplete();
 
@@ -86,6 +92,8 @@ void ConfigServer::setup(AsyncWebServer *server, Config *config) {
 
         if(deserializeResult == E_CONFIG_OK && config->write() == E_CONFIG_OK) {
           request->send(200);
+          delay(100);
+          ESP.restart();
           return;
         } else {
           Serial.printf("Error: %i\n", deserializeResult);
