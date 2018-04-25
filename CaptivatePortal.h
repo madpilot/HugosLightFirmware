@@ -14,7 +14,7 @@ class CaptivatePortal {
     CaptivatePortal();
     ~CaptivatePortal();
     captivate_portal_result start(char *name, AsyncWebServer *server);
-    void stop();
+    void stop(AsyncWebServer *server);
   private:
     AsyncUDP *udp;
     void setupListener();

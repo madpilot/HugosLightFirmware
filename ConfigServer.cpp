@@ -14,7 +14,7 @@ void ConfigServer::setup(AsyncWebServer *server, Config *config) {
   WiFi.scanNetworks();
   server->on("/aps.json", HTTP_GET, [](AsyncWebServerRequest *request) {
     int num = WiFi.scanComplete();
-   
+
     if(num == -2){
       num = WiFi.scanNetworks(true);
     }
@@ -27,7 +27,7 @@ void ConfigServer::setup(AsyncWebServer *server, Config *config) {
     // Bubble Sort - Strongest signal first.
     bool completed = false;
     while(!completed) {
-      completed = true; 
+      completed = true;
       for(int i = 0; i < num - 1; i++) {
         if(WiFi.RSSI(indices[i]) < WiFi.RSSI(indices[i + 1])) {
           int temp = indices[i];
@@ -47,22 +47,22 @@ void ConfigServer::setup(AsyncWebServer *server, Config *config) {
         } else {
           start = false;
         }
-        
+
         json += "{";
         json += "\"ssid\":\"" + WiFi.SSID(indices[i])+"\"";
         json += ",\"rssi\":" + String(WiFi.RSSI(indices[i]));
         json += ",\"encryption\":" + String(WiFi.encryptionType(indices[i]));
         json += "}";
       }
-      
+
       WiFi.scanDelete();
-      
+
       if(WiFi.scanComplete() == -2){
         WiFi.scanNetworks(true);
       }
     }
     json += "]";
-        
+
     AsyncWebServerResponse *response = request->beginResponse(200,"application/json", json);
     response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     response->addHeader("Pragma", "no-cache");
@@ -73,7 +73,7 @@ void ConfigServer::setup(AsyncWebServer *server, Config *config) {
   server->on("/config/update", HTTP_POST, [config](AsyncWebServerRequest *request) {
     if(request->hasParam("config.dat", true)) {
       AsyncWebParameter* p = request->getParam("config.dat", true);
-      
+
       const char *postedConfig = p->value().c_str();
       int postedConfigLen = strlen(postedConfig);
       Serial.printf("Config: %s\n", postedConfig);
@@ -82,12 +82,8 @@ void ConfigServer::setup(AsyncWebServer *server, Config *config) {
       unsigned char *configBuffer;
 
       if(ConfigEncoder::decode((char *)postedConfig, &configBuffer, postedConfigLen) == CONFIG_ENCODE_OK) {
-        for(int i = 0; i < configBufferLen; i++) {
-          Serial.printf("%x", configBuffer[i]);
-        }
-        Serial.println("");
         config_result deserializeResult = config->deserialize(configBuffer, configBufferLen);
-        
+
         if(deserializeResult == E_CONFIG_OK && config->write() == E_CONFIG_OK) {
           request->send(200);
           return;
@@ -103,18 +99,18 @@ void ConfigServer::setup(AsyncWebServer *server, Config *config) {
     }
     request->send(200);
   }, doUpload);
-  
+
   server->on("/config.dat", HTTP_GET, [config](AsyncWebServerRequest *request) {
     if(config->read() == E_CONFIG_OK) {
       int configBufferLen = config->estimateSerializeBufferLength();
       unsigned char *configBuffer = (unsigned char *)malloc(configBufferLen * sizeof(unsigned char));
-      
+
       if(config->serialize(configBuffer) != E_CONFIG_OK) {
         free(configBuffer);
         request->send(500);
         return;
       }
-      
+
       char *out;
       if(ConfigEncoder::encode(configBuffer, &out, configBufferLen) == CONFIG_ENCODE_OK) {
         AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", String(out));
@@ -127,10 +123,48 @@ void ConfigServer::setup(AsyncWebServer *server, Config *config) {
       } else {
         request->send(500);
       }
-      
+
       free(configBuffer);
     } else {
       request->send(404);
+    }
+  });
+
+  server->onFileUpload([](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
+    if(request->url() == "/firmware") {
+      if(index == 0) {
+        Serial.println("Firmware upload started");
+        uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+        if(!Update.begin(maxSketchSpace)) {
+          Serial.println("Firmware upload could not start");
+          Update.printError(Serial);
+          request->send(500);
+          return;
+        } else {
+          Update.runAsync(true);
+        }
+      }
+
+      if(Update.write(data, len) != len) {
+        Serial.println("Firmware upload aborted");
+        Update.printError(Serial);
+        request->send(500);
+        return;
+      }
+
+      if(final) {
+        if(Update.end(true)) {
+          Serial.println("Firmware upload complete. Restarting.");
+          request->send(200);
+          delay(100);
+          ESP.restart();
+        } else {
+          Serial.println("Firmware upload failed");
+          Update.printError(Serial);
+          request->send(500);
+          return;
+        }
+      }
     }
   });
 
