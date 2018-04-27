@@ -53,18 +53,25 @@ bool State::requestAnimationFrame() {
   long now = millis();
 
   if(now - _lastTick > TICKS) {
+    bool changed = false;
     Frame<uint8_t> b;
     _brightnessAnimation.nextFrame(&b);
-    FastLED.setBrightness(b.tweenable);
+
+    if(FastLED.getBrightness() != b.tweenable) {
+      changed = true;
+      FastLED.setBrightness(b.tweenable);
+    }
 
     if(_animationType == ANIMATION_RAW) {
       for(int i = 0; i < _numLEDS; i++) {
-        _leds[i].red = *(_rawPayload + (i * 3));
-        _leds[i].green = *(_rawPayload + (i * 3) + 1);
-        _leds[i].blue = *(_rawPayload + (i * 3) + 2);
+        if(_leds[i].red != *(_rawPayload + (i * 3)) || _leds[i].green != *(_rawPayload + (i * 3) + 1) || _leds[i].blue != *(_rawPayload + (i * 3) + 2)) {
+          changed = true;
+          _leds[i].red = *(_rawPayload + (i * 3));
+          _leds[i].green = *(_rawPayload + (i * 3) + 1);
+          _leds[i].blue = *(_rawPayload + (i * 3) + 2);
+        }
       }
     } else {
-      bool changed = false;
       for(int i = 0; i < _animations.size(); i++) {
         Frame<CRGB> f;
         _animations[i].nextFrame(&f);
@@ -77,9 +84,8 @@ bool State::requestAnimationFrame() {
           _leds[i].blue = f.tweenable.blue;
         }
       }
-      return changed;
     }
-    return true;
+    return changed;
   }
   return false;
 }
