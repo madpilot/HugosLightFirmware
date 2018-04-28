@@ -1,6 +1,8 @@
 #include "Api.h"
 #define MAGIC_NUMBER 0x48
 
+uint32_t id = ESP.getChipId();
+
 uint16_t Api::duration(uint8_t *recvBuffer, uint8_t length, uint8_t offset) {
   uint8_t *start = recvBuffer;
   if(length == offset + 2) {
@@ -74,9 +76,17 @@ int Api::dispatch(State *state, uint8_t *payload, int length) {
       *(payload + i) = 0x00;
     }
 
-    int sendLen = 8 * sizeof(uint8_t);
-    *(sendBuffer++) = (uint8_t)MAGIC_NUMBER;
-    *(sendBuffer++) = RESPONSE;
+    // This can be optimised by caching the preamble, as it never changes.
+    int sendLen = sizeof(uint32_t) + sizeof(serialized_state) + (2 * sizeof(uint8_t));
+    *sendBuffer = (uint8_t)MAGIC_NUMBER;
+    sendBuffer += sizeof(uint8_t);
+    *sendBuffer = RESPONSE;
+    sendBuffer += sizeof(uint8_t);
+
+    for(int i = 0; i < sizeof(uint32_t) / sizeof(uint8_t); i++) {
+     *sendBuffer = id >> (i * 8) & 0xFF;
+      sendBuffer += sizeof(uint8_t);
+    }
 
     state->serialize((serialized_state *)(sendBuffer));
     return sendLen;

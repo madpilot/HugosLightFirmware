@@ -14,13 +14,18 @@ Config::Config() {
   this->staticGateway = NULL;
   this->staticSubnet = NULL;
 
+	this->set_deviceName("");
 	this->set_ssid("");
 	this->set_passkey("");
-	this->set_deviceName("");
+  this->set_hostname("");
   this->set_staticIP("");
   this->set_staticDNS("");
   this->set_staticGateway("");
   this->set_staticSubnet("");
+}
+
+char* Config::get_deviceName() {
+  return deviceName;
 }
 
 char* Config::get_ssid() {
@@ -31,12 +36,12 @@ char* Config::get_passkey() {
   return passkey;
 }
 
-int Config::get_encryption() {
-  return encryption;
+char* Config::get_hostname() {
+  return hostname;
 }
 
-char* Config::get_deviceName() {
-  return deviceName;
+int Config::get_encryption() {
+  return encryption;
 }
 
 bool Config::get_dhcp() {
@@ -74,6 +79,10 @@ void Config::set_encryption(int val) {
 
 void Config::set_deviceName(const char* val) {
   allocString(&this->deviceName, val);
+}
+
+void Config::set_hostname(const char* val) {
+  allocString(&this->hostname, val);
 }
 
 void Config::set_dhcp(bool val) {
@@ -117,9 +126,10 @@ bool Config::allocString(char **dest, const char *val) {
 
 int Config::estimateSerializeBufferLength() {
   int size = 2;
+  size += strlen(deviceName) + 1;
   size += strlen(ssid) + 1;
   size += strlen(passkey) + 1;
-  size += strlen(deviceName) + 1;
+  size += strlen(hostname) + 1;
   size += strlen(staticIP) + 1;
   size += strlen(staticDNS) + 1;
   size += strlen(staticGateway) + 1;
@@ -177,9 +187,10 @@ int Config::serialize(unsigned char *buffer) {
   buffer[1] = buffer[1] | (dhcp & 0x01) << 3;
 
   int offset = 2;
+  serializeString(buffer, deviceName, &offset);
   serializeString(buffer, ssid, &offset);
   serializeString(buffer, passkey, &offset);
-  serializeString(buffer, deviceName, &offset);
+  serializeString(buffer, hostname, &offset);
   serializeString(buffer, staticIP, &offset);
   serializeString(buffer, staticDNS, &offset);
   serializeString(buffer, staticGateway, &offset);
@@ -199,16 +210,18 @@ config_result Config::deserialize(unsigned char *buffer, int length) {
 
   encryption = buffer[1] & 0x07;
   dhcp = (buffer[1] >> 3) & 0x01;
-  
+
   int offset = 2;
 
   config_result result;
 
+  result = deserializeString(buffer, length, &deviceName, &offset);
+  if(result != E_CONFIG_OK) return result;
   result = deserializeString(buffer, length, &ssid, &offset);
   if(result != E_CONFIG_OK) return result;
   result = deserializeString(buffer, length, &passkey, &offset);
   if(result != E_CONFIG_OK) return result;
-  result = deserializeString(buffer, length, &deviceName, &offset);
+  result = deserializeString(buffer, length, &hostname, &offset);
   if(result != E_CONFIG_OK) return result;
   result = deserializeString(buffer, length, &staticIP, &offset);
   if(result != E_CONFIG_OK) return result;

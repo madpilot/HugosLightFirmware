@@ -18,10 +18,11 @@ class Config {
     Config();
 
     // Getters
+    char* get_deviceName();
+    char* get_hostname();
     char* get_ssid();
     char* get_passkey();
     int get_encryption();
-    char* get_deviceName();
 
     bool get_dhcp();
     char* get_staticIP();
@@ -30,11 +31,12 @@ class Config {
     char* get_staticSubnet();
 
     // Setters
+    void set_deviceName(const char* val);
     void set_ssid(const char* val);
     void set_passkey(const char* val);
     void set_encryption(int val);
-    void set_deviceName(const char* val);
 
+    void set_hostname(const char* val);
     void set_dhcp(bool val);;
     void set_staticIP(const char* val);
     void set_staticDNS(const char* val);
@@ -55,6 +57,7 @@ class Config {
     char* deviceName;
 
     bool dhcp;
+    char *hostname;
     char* staticIP;
     char* staticDNS;
     char* staticGateway;

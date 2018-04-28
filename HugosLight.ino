@@ -18,8 +18,6 @@
 #include "State.h"
 #include "Api.h"
 
-#define CONFIG_AP_SSID "hugos-lights"
-
 #define DATA_PIN    15
 #define BUTTON      5
 
@@ -129,6 +127,8 @@ config_result configSetup() {
   return result;
 }
 
+
+
 void wifiSetup() {
   // Turn off WIFI sleep to remove some jitter - apparently by default the ESP8266 uses a low power
   // mode where it goes to sleep between beacons, causing an elongated interupt, which messes with
@@ -139,18 +139,25 @@ void wifiSetup() {
     Serial.println("Could not connect to WiFi. Will try again in 5 seconds");
     delay(5000);
   }
+
   Serial.println("Connected to WiFi");
-  MDNS.begin(config.get_deviceName());
-  Serial.printf("Registered as %s.local\n", config.get_deviceName());
+  MDNS.begin(config.get_hostname());
+
+  Serial.printf("Registered as %s.local\n", config.get_hostname());
   MDNS.addService("http", "tcp", 80);
-  MDNS.addService("hugos-light", "udp", UDP_PORT);
+  MDNS.addService("felux", "udp", UDP_PORT);
+
+  Serial.printf("Felux ID: %i", ESP.getChipId());
 }
 
 CaptivatePortal *portal;
 void captivatePortalSetup() {
   portal = new CaptivatePortal();
-  if(portal->start(CONFIG_AP_SSID, &webServer) == E_CAPTIVATE_PORTAL_OK) {
-    Serial.printf("Captivate Portal set up. Name: %s\n", CONFIG_AP_SSID);
+  char* ssid = "felux_xxxxxx";
+  sprintf(ssid, "felux_%06X", ESP.getChipId());
+
+  if(portal->start(ssid, &webServer) == E_CAPTIVATE_PORTAL_OK) {
+    Serial.printf("Captivate Portal set up. Name: %s\n", ssid);
   } else {
     Serial.println("Unable to setup Captivate Portal");
   }
