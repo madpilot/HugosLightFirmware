@@ -143,9 +143,15 @@ void wifiSetup() {
   Serial.println("Connected to WiFi");
   MDNS.begin(config.get_hostname());
 
+  char *id = "xxxxxx";
+  sprintf(id, "%06x", ESP.getChipId());
+
   Serial.printf("Registered as %s.local\n", config.get_hostname());
   MDNS.addService("http", "tcp", 80);
   MDNS.addService("felux", "udp", UDP_PORT);
+  MDNS.addServiceTxt("felux", "udp", "device_name", (const char *)config.get_deviceName());
+  MDNS.addServiceTxt("felux", "udp", "leds", (const char *)String(NUM_LEDS).c_str());
+  MDNS.addServiceTxt("felux", "udp", "id", (const char *)id);
 
   Serial.printf("Felux ID: %i", ESP.getChipId());
 }
