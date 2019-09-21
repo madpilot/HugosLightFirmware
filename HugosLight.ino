@@ -5,10 +5,12 @@
 
 #include <FastLED.h>
 
+#include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <ESPAsyncWebServer.h>
 #include <ESP8266mDNS.h>
+#include <WiFiClient.h>
 #include <Ticker.h>
 
 #include "Config.h"
@@ -97,7 +99,7 @@ void buttonUp() {
   }
 }
 
-void buttonChange() {
+ICACHE_RAM_ATTR void buttonChange() {
   if(digitalRead(BUTTON) == 1) {
     buttonUp();
   } else {
@@ -142,7 +144,7 @@ void wifiSetup() {
 
   Serial.println("Connected to WiFi");
   MDNS.begin(config.get_hostname());
-
+  
   char *id = "xxxxxx";
   sprintf(id, "%06x", ESP.getChipId());
 
@@ -152,7 +154,6 @@ void wifiSetup() {
   MDNS.addServiceTxt("felux", "udp", "device_name", (const char *)config.get_deviceName());
   MDNS.addServiceTxt("felux", "udp", "leds", (const char *)String(NUM_LEDS).c_str());
   MDNS.addServiceTxt("felux", "udp", "id", (const char *)id);
-
   Serial.printf("Felux ID: %i", ESP.getChipId());
 }
 
@@ -232,4 +233,5 @@ void loop() {
     // When the next animation frame is ready, render the LEDS;
     FastLED.show();
   }
+  MDNS.update();
 }
